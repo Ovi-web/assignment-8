@@ -9,15 +9,18 @@ if (!mongoUri) {
 }
 
 const globalForMongo = globalThis as typeof globalThis & {
-  bookNookMongoClient?: MongoClient;
+  bookNookMongoClients?: Map<string, MongoClient>;
 };
 
-const client =
-  globalForMongo.bookNookMongoClient ?? new MongoClient(mongoUri);
+const mongoClients = (globalForMongo.bookNookMongoClients ??= new Map());
+let client = mongoClients.get(mongoUri);
 
-globalForMongo.bookNookMongoClient = client;
+if (!client) {
+  client = new MongoClient(mongoUri);
+  mongoClients.set(mongoUri, client);
+}
 
-const db = client.db("booknook");
+const db = client.db("booknookserver");
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 

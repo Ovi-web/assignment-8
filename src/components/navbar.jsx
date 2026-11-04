@@ -121,11 +121,11 @@ export default function Navbar() {
                   <p className="mt-1 truncate text-xs text-[#586a7b]">{user.email}</p>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/my-profile" className="flex items-center gap-2">
-                    <UserRound aria-hidden="true" size={16} />
-                    My Profile
-                  </Link>
+                <DropdownMenuItem
+                  render={<Link href="/my-profile" className="flex items-center gap-2" />}
+                >
+                  <UserRound aria-hidden="true" size={16} />
+                  My Profile
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} disabled={isSigningOut} className="text-[#9d4a3f] focus:bg-[#9d4a3f]/10 focus:text-[#9d4a3f]">
