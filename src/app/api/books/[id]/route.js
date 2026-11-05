@@ -1,10 +1,19 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-
-const BOOKS_API_URL =
-  process.env.BOOKS_API_URL || "http://localhost:8000/books";
+import { getBackendAuthHeaders } from "@/lib/backend-auth";
+import { BOOKS_API_URL, getResourceUrl } from "@/lib/backend-urls";
 const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
+
+function forwardResponse(response, body) {
+  return new Response(body || null, {
+    status: response.status,
+    headers: {
+      "Content-Type":
+        response.headers.get("content-type") ?? "text/plain; charset=utf-8",
+    },
+  });
+}
 
 function getBookList(payload) {
   if (Array.isArray(payload)) return payload;
@@ -13,10 +22,13 @@ function getBookList(payload) {
   return null;
 }
 
-async function getOwnedBook(id, email) {
+async function getOwnedBook(id, email, requestHeaders) {
   const url = new URL(BOOKS_API_URL);
   url.searchParams.set("email", email);
-  const response = await fetch(url, { cache: "no-store" });
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: await getBackendAuthHeaders(requestHeaders),
+  });
 
   if (!response.ok) {
     const error = new Error("Could not verify book ownership.");
@@ -37,13 +49,14 @@ async function getOwnedBook(id, email) {
   );
 }
 
-async function getRequestUser() {
-  const session = await auth.api.getSession({ headers: await headers() });
+async function getRequestUser(requestHeaders) {
+  const session = await auth.api.getSession({ headers: requestHeaders });
   return session?.user ?? null;
 }
 
 export async function PATCH(request, { params }) {
-  const user = await getRequestUser();
+  const requestHeaders = await headers();
+  const user = await getRequestUser(requestHeaders);
   if (!user) {
     return NextResponse.json({ message: "Please log in to edit books." }, { status: 401 });
   }
@@ -79,7 +92,7 @@ export async function PATCH(request, { params }) {
   }
 
   try {
-    const book = await getOwnedBook(id, user.email);
+    const book = await getOwnedBook(id, user.email, requestHeaders);
     if (!book) {
       return NextResponse.json({ message: "Book not found." }, { status: 404 });
     }
@@ -92,23 +105,25 @@ export async function PATCH(request, { params }) {
       bookImage: updates.imageUrl,
       shortDescription: updates.description,
     };
-    const response = await fetch(`${BOOKS_API_URL}/${encodeURIComponent(id)}`, {
+    const response = await fetch(getResourceUrl(BOOKS_API_URL, id), {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: await getBackendAuthHeaders(requestHeaders, {
+        "Content-Type": "application/json",
+      }),
       body: JSON.stringify(backendUpdates),
     });
-    const result = await response.json();
-    return NextResponse.json(result, { status: response.status });
+    return forwardResponse(response, await response.text());
   } catch (error) {
     return NextResponse.json(
       { message: error instanceof Error ? error.message : "Could not update this book." },
-      { status: error?.status === 401 || error?.status === 403 ? error.status : 502 },
+      { status: Number.isInteger(error?.status) ? error.status : 502 },
     );
   }
 }
 
 export async function DELETE(_request, { params }) {
-  const user = await getRequestUser();
+  const requestHeaders = await headers();
+  const user = await getRequestUser(requestHeaders);
   if (!user) {
     return NextResponse.json({ message: "Please log in to delete books." }, { status: 401 });
   }
@@ -119,20 +134,20 @@ export async function DELETE(_request, { params }) {
   }
 
   try {
-    const book = await getOwnedBook(id, user.email);
+    const book = await getOwnedBook(id, user.email, requestHeaders);
     if (!book) {
       return NextResponse.json({ message: "Book not found." }, { status: 404 });
     }
 
-    const response = await fetch(`${BOOKS_API_URL}/${encodeURIComponent(id)}`, {
+    const response = await fetch(getResourceUrl(BOOKS_API_URL, id), {
       method: "DELETE",
+      headers: await getBackendAuthHeaders(requestHeaders),
     });
-    const result = await response.json();
-    return NextResponse.json(result, { status: response.status });
+    return forwardResponse(response, await response.text());
   } catch (error) {
     return NextResponse.json(
       { message: error instanceof Error ? error.message : "Could not delete this book." },
-      { status: error?.status === 401 || error?.status === 403 ? error.status : 502 },
+      { status: Number.isInteger(error?.status) ? error.status : 502 },
     );
   }
 }

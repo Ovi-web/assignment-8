@@ -1,10 +1,10 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { BookOpen } from "lucide-react";
 import BorrowList from "@/app/my-borrows/borrow-list";
+import { getBackendAuthHeaders } from "@/lib/backend-auth";
+import { BORROWS_API_URL } from "@/lib/backend-urls";
 import { requireUser } from "@/lib/require-user";
-
-const BORROWS_API_URL =
-  process.env.BORROWS_API_URL || "http://localhost:8000/borrows";
 
 export const dynamic = "force-dynamic";
 
@@ -27,11 +27,13 @@ function getBorrowList(payload) {
 async function getMyBorrows(user) {
   const url = new URL(BORROWS_API_URL);
   url.searchParams.set("email", user.email);
+  const requestHeaders = await headers();
   let response;
 
   try {
     response = await fetch(url, {
       cache: "no-store",
+      headers: await getBackendAuthHeaders(requestHeaders),
     });
   } catch {
     throw new Error(

@@ -2,11 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BookOpen, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
-import { getLoginUrl } from "@/lib/auth-redirect";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import { getBookImageUrl } from "@/lib/book-image";
 
 function formatDate(value) {
@@ -38,7 +37,6 @@ function getBorrowId(borrow, index) {
 }
 
 export default function BorrowList({ borrows }) {
-  const router = useRouter();
   const [activeBorrows, setActiveBorrows] = useState(borrows);
   const [returningId, setReturningId] = useState("");
 
@@ -46,8 +44,9 @@ export default function BorrowList({ borrows }) {
     setReturningId(borrowId);
 
     try {
-      const response = await fetch("/api/borrows", {
+      const response = await authenticatedFetch("/api/borrows", {
         method: "DELETE",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ borrowId }),
       });
@@ -55,10 +54,6 @@ export default function BorrowList({ borrows }) {
       const result = await response.json();
 
       if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          router.push(getLoginUrl("/my-borrows"));
-          return;
-        }
         throw new Error(result.message || "Could not return this book.");
       }
 

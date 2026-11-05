@@ -1,17 +1,12 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-
-const BOOKS_API_URL =
-  process.env.BOOKS_API_URL || "http://localhost:8000/books";
-const ADD_BOOKS_API_URL =
-  process.env.ADD_BOOKS_API_URL ||
-  new URL("/add-books", BOOKS_API_URL).toString();
+import { getBackendAuthHeaders } from "@/lib/backend-auth";
+import { ADD_BOOKS_API_URL } from "@/lib/backend-urls";
 
 export async function POST(request) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const requestHeaders = await headers();
+  const session = await auth.api.getSession({ headers: requestHeaders });
 
   if (!session) {
     return NextResponse.json(
@@ -40,9 +35,9 @@ export async function POST(request) {
   try {
     const response = await fetch(ADD_BOOKS_API_URL, {
       method: "POST",
-      headers: {
+      headers: await getBackendAuthHeaders(requestHeaders, {
         "Content-Type": "application/json",
-      },
+      }),
       body: JSON.stringify({
         ...book,
         image: book.imageUrl,

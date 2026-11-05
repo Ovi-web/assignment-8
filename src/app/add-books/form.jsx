@@ -15,8 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import { authClient } from "@/lib/auth-client";
-import { getLoginUrl } from "@/lib/auth-redirect";
 
 const categories = [
   "Fiction",
@@ -144,16 +144,12 @@ export default function AddBookForm() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/books", {
+      const response = await authenticatedFetch("/api/books", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(book),
       });
-
-      if (response.status === 401 || response.status === 403) {
-        router.push(getLoginUrl("/add-books"));
-        return;
-      }
 
       if (!response.ok) {
         let result;
@@ -165,7 +161,7 @@ export default function AddBookForm() {
 
         if (response.status === 404) {
           throw new Error(
-            "The book endpoint was not found. Check the backend route at http://localhost:8000/add-books.",
+            "The book endpoint was not found. Check the configured Express /add-books route.",
           );
         }
 

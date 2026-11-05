@@ -3,10 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { BookOpen, LoaderCircle, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { getLoginUrl } from "@/lib/auth-redirect";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import { getBookImageUrl } from "@/lib/book-image";
 import {
   Dialog,
@@ -25,12 +24,22 @@ function getTitle(book) {
   return String(book.bookTitle ?? book.title ?? "Untitled");
 }
 
+async function readApiResponse(response) {
+  const body = await response.text();
+  if (!body) return null;
+
+  try {
+    return JSON.parse(body);
+  } catch {
+    return { message: body };
+  }
+}
+
 export default function MyBooksTable({
   books: initialBooks,
   userName,
   userEmail,
 }) {
-  const router = useRouter();
   const [books, setBooks] = useState(initialBooks);
   const [editingBook, setEditingBook] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -62,22 +71,21 @@ export default function MyBooksTable({
 
     setIsSaving(true);
     try {
-      const response = await fetch(
+      const response = await authenticatedFetch(
         `/api/books/${encodeURIComponent(getBookId(editingBook, 0))}`,
         {
           method: "PATCH",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(updates),
         },
       );
-      const result = await response.json();
+      const result = await readApiResponse(response);
 
       if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          router.push(getLoginUrl("/my-books"));
-          return;
-        }
-        throw new Error(result.message || "Could not update this book.");
+        throw new Error(
+          result?.message || "Could not update this book. Please try again.",
+        );
       }
 
       setBooks((currentBooks) =>
@@ -113,17 +121,16 @@ export default function MyBooksTable({
 
     setDeletingId(id);
     try {
-      const response = await fetch(`/api/books/${encodeURIComponent(id)}`, {
+      const response = await authenticatedFetch(`/api/books/${encodeURIComponent(id)}`, {
         method: "DELETE",
+        credentials: "include",
       });
-      const result = await response.json();
+      const result = await readApiResponse(response);
 
       if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          router.push(getLoginUrl("/my-books"));
-          return;
-        }
-        throw new Error(result.message || "Could not delete this book.");
+        throw new Error(
+          result?.message || "Could not delete this book. Please try again.",
+        );
       }
 
       setBooks((currentBooks) =>

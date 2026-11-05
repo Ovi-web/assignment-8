@@ -2,11 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
 import { LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import { authClient } from "@/lib/auth-client";
-import { getLoginUrl } from "@/lib/auth-redirect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,8 +26,6 @@ export default function BookBorrowDialog({
   ownerEmail,
   initialCopies,
 }) {
-  const pathname = usePathname();
-  const router = useRouter();
   const { data: session, isPending: isSessionPending } =
     authClient.useSession();
   const [isOpen, setIsOpen] = useState(false);
@@ -59,16 +56,11 @@ export default function BookBorrowDialog({
       setIsCheckingBorrowStatus(true);
 
       try {
-        const response = await fetch(
+        const response = await authenticatedFetch(
           `/api/borrows?bookId=${encodeURIComponent(bookId)}`,
           { cache: "no-store" },
         );
         const result = await response.json();
-
-        if (response.status === 401 || response.status === 403) {
-          router.push(getLoginUrl(pathname));
-          return;
-        }
 
         if (!response.ok) {
           throw new Error(
@@ -117,7 +109,7 @@ export default function BookBorrowDialog({
       window.removeEventListener("popstate", checkBorrowStatus);
       document.removeEventListener("visibilitychange", checkWhenVisible);
     };
-  }, [bookId, isSessionPending, pathname, router, session?.user?.email]);
+  }, [bookId, isSessionPending, session?.user?.email]);
 
   const isOutOfStock = !Number.isFinite(copiesLeft) || copiesLeft <= 0;
 
@@ -132,20 +124,15 @@ export default function BookBorrowDialog({
       }
 
       if (!session?.user) {
-        router.push(getLoginUrl(pathname));
+        toast.error("Please sign in before borrowing this book.");
         return;
       }
 
-      const statusResponse = await fetch(
+      const statusResponse = await authenticatedFetch(
         `/api/borrows?bookId=${encodeURIComponent(bookId)}`,
         { cache: "no-store" },
       );
       const statusResult = await statusResponse.json();
-
-      if (statusResponse.status === 401 || statusResponse.status === 403) {
-        router.push(getLoginUrl(pathname));
-        return;
-      }
 
       if (!statusResponse.ok) {
         throw new Error(
@@ -214,8 +201,9 @@ export default function BookBorrowDialog({
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/borrows", {
+      const response = await authenticatedFetch("/api/borrows", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           bookId,
@@ -237,11 +225,6 @@ export default function BookBorrowDialog({
         result = JSON.parse(responseText);
       } catch {
         result = { message: responseText };
-      }
-
-      if (response.status === 401 || response.status === 403) {
-        router.push(getLoginUrl(pathname));
-        return;
       }
 
       if (!response.ok) {

@@ -1,11 +1,12 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-
-const BORROWS_API_URL =
-  process.env.BORROWS_API_URL || "http://localhost:8000/borrows";
-const BOOKS_API_URL =
-  process.env.BOOKS_API_URL || "http://localhost:8000/books";
+import { getBackendAuthHeaders } from "@/lib/backend-auth";
+import {
+  BOOKS_API_URL,
+  BORROWS_API_URL,
+  getResourceUrl,
+} from "@/lib/backend-urls";
 
 function getBorrowList(payload) {
   if (Array.isArray(payload)) {
@@ -24,9 +25,8 @@ function getBorrowList(payload) {
 }
 
 export async function GET(request) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const requestHeaders = await headers();
+  const session = await auth.api.getSession({ headers: requestHeaders });
 
   if (!session) {
     return NextResponse.json(
@@ -40,12 +40,20 @@ export async function GET(request) {
   backendUrl.searchParams.set("email", session.user.email);
 
   try {
-    const response = await fetch(backendUrl, { cache: "no-store" });
+    const response = await fetch(backendUrl, {
+      cache: "no-store",
+      headers: await getBackendAuthHeaders(requestHeaders),
+    });
 
     if (!response.ok) {
       return NextResponse.json(
-        { message: "Could not check your borrowed books." },
-        { status: response.status === 401 || response.status === 403 ? response.status : 502 },
+        {
+          message:
+            response.status === 503
+              ? "The borrow server is temporarily unavailable."
+              : "Could not check your borrowed books.",
+        },
+        { status: response.status },
       );
     }
 
@@ -74,14 +82,17 @@ export async function GET(request) {
     let availableCopies;
     if (bookId) {
       const bookResponse = await fetch(
-        `${BOOKS_API_URL}/${encodeURIComponent(bookId)}`,
-        { cache: "no-store" },
+        getResourceUrl(BOOKS_API_URL, bookId),
+        {
+          cache: "no-store",
+          headers: await getBackendAuthHeaders(requestHeaders),
+        },
       );
 
       if (!bookResponse.ok) {
         return NextResponse.json(
           { message: "Could not check this book's availability." },
-          { status: 502 },
+          { status: bookResponse.status },
         );
       }
 
@@ -114,9 +125,8 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const requestHeaders = await headers();
+  const session = await auth.api.getSession({ headers: requestHeaders });
 
   if (!session) {
     return NextResponse.json(
@@ -150,7 +160,9 @@ export async function POST(request) {
   try {
     const response = await fetch(BORROWS_API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: await getBackendAuthHeaders(requestHeaders, {
+        "Content-Type": "application/json",
+      }),
       body: JSON.stringify({
         ...borrow,
         userName: session.user.name,
@@ -174,9 +186,8 @@ export async function POST(request) {
 }
 
 export async function DELETE(request) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const requestHeaders = await headers();
+  const session = await auth.api.getSession({ headers: requestHeaders });
 
   if (!session) {
     return NextResponse.json(
@@ -206,12 +217,20 @@ export async function DELETE(request) {
   try {
     const listUrl = new URL(BORROWS_API_URL);
     listUrl.searchParams.set("email", session.user.email);
-    const listResponse = await fetch(listUrl, { cache: "no-store" });
+    const listResponse = await fetch(listUrl, {
+      cache: "no-store",
+      headers: await getBackendAuthHeaders(requestHeaders),
+    });
 
     if (!listResponse.ok) {
       return NextResponse.json(
-        { message: "Could not verify this borrow record." },
-        { status: listResponse.status === 401 || listResponse.status === 403 ? listResponse.status : 502 },
+        {
+          message:
+            listResponse.status === 503
+              ? "The borrow server is temporarily unavailable."
+              : "Could not verify this borrow record.",
+        },
+        { status: listResponse.status },
       );
     }
 
@@ -241,14 +260,17 @@ export async function DELETE(request) {
     }
 
     const response = await fetch(
-      `${BORROWS_API_URL}/${encodeURIComponent(borrowId)}`,
-      { method: "DELETE" },
+      getResourceUrl(BORROWS_API_URL, borrowId),
+      {
+        method: "DELETE",
+        headers: await getBackendAuthHeaders(requestHeaders),
+      },
     );
 
     if (!response.ok) {
       return NextResponse.json(
         { message: "Could not return this book. Please try again." },
-        { status: response.status >= 500 ? 502 : response.status },
+        { status: response.status },
       );
     }
 

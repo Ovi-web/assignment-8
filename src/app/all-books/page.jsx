@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { headers } from "next/headers";
 import {
   Card,
   CardContent,
@@ -7,10 +8,9 @@ import {
 import BookCover from "@/components/book-cover";
 import BookDetailsButton from "@/components/book-details-button";
 import { getBookImageUrl } from "@/lib/book-image";
+import { getBackendAuthHeaders } from "@/lib/backend-auth";
+import { BOOKS_API_URL } from "@/lib/backend-urls";
 import { sortBooksNewestFirst } from "@/lib/sort-books";
-
-const BOOKS_API_URL =
-  process.env.BOOKS_API_URL || "http://localhost:8000/books";
 
 function BookGridSkeleton() {
   return (
@@ -70,7 +70,11 @@ function getBookList(payload) {
 }
 
 async function fetchBooks() {
-  const response = await fetch(BOOKS_API_URL, { cache: "no-store" });
+  const requestHeaders = await headers();
+  const response = await fetch(BOOKS_API_URL, {
+    cache: "no-store",
+    headers: await getBackendAuthHeaders(requestHeaders),
+  });
 
   if (!response.ok) {
     throw new Error(

@@ -1,11 +1,15 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { headers } from "next/headers";
 import BookCover from "@/components/book-cover";
 import BookDetailsButton from "@/components/book-details-button";
+import { getBackendAuthHeaders } from "@/lib/backend-auth";
+import { BOOKS_API_URL } from "@/lib/backend-urls";
 import { getBookImageUrl } from "@/lib/book-image";
 import { sortBooksNewestFirst } from "@/lib/sort-books";
 
-const NEW_ARRIVALS_API_URL = "http://localhost:8000/books?limit=6";
+const NEW_ARRIVALS_API_URL = new URL(BOOKS_API_URL);
+NEW_ARRIVALS_API_URL.searchParams.set("limit", "6");
 
 function NewArrivalsSkeleton() {
   return (
@@ -52,7 +56,11 @@ async function LatestBooks() {
   let response;
 
   try {
-    response = await fetch(NEW_ARRIVALS_API_URL, { cache: "no-store" });
+    const requestHeaders = await headers();
+    response = await fetch(NEW_ARRIVALS_API_URL, {
+      cache: "no-store",
+      headers: await getBackendAuthHeaders(requestHeaders),
+    });
   } catch {
     return <p role="alert" className="text-center text-sm text-[#8d4e40]">Could not connect to the book server. Please try again later.</p>;
   }

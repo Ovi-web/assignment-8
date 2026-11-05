@@ -1,14 +1,14 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { BookOpen, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { requireUser } from "@/lib/require-user";
 import MyBooksTable from "@/app/my-books/my-books-table";
 import { sortBooksNewestFirst } from "@/lib/sort-books";
+import { getBackendAuthHeaders } from "@/lib/backend-auth";
+import { BOOKS_API_URL } from "@/lib/backend-urls";
 
 export const dynamic = "force-dynamic";
-
-const BOOKS_API_URL =
-  process.env.BOOKS_API_URL || "http://localhost:8000/books";
 
 function getBookList(payload) {
   if (Array.isArray(payload)) return payload;
@@ -18,6 +18,7 @@ function getBookList(payload) {
 }
 
 async function getMyBooks(user) {
+  const requestHeaders = await headers();
   const url = new URL(BOOKS_API_URL);
   url.searchParams.set("email", user.email);
 
@@ -25,6 +26,7 @@ async function getMyBooks(user) {
   try {
     response = await fetch(url, {
       cache: "no-store",
+      headers: await getBackendAuthHeaders(requestHeaders),
     });
   } catch {
     throw new Error(
@@ -108,6 +110,7 @@ export default async function MyBooksPage() {
               Books you add to the library will appear here.
             </p>
             <Button
+              nativeButton={false}
               render={<Link href="/add-books" />}
               className="mt-5 bg-[#102a3f] text-white hover:bg-[#183a57]"
             >

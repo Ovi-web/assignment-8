@@ -1,20 +1,24 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import BookCover from "@/components/book-cover";
 import BookBorrowDialog from "@/components/book-borrow-dialog";
+import { getBackendAuthHeaders } from "@/lib/backend-auth";
+import { BOOKS_API_URL, getResourceUrl } from "@/lib/backend-urls";
 import { getBookImageUrl } from "@/lib/book-image";
 import { requireUser } from "@/lib/require-user";
 
-const BOOKS_API_URL =
-  process.env.BOOKS_API_URL || "http://localhost:8000/books";
-
 async function getBook(id) {
+  const requestHeaders = await headers();
   let response;
 
   try {
     response = await fetch(
-      `${BOOKS_API_URL}/${encodeURIComponent(id)}`,
-      { cache: "no-store" },
+      getResourceUrl(BOOKS_API_URL, id),
+      {
+        cache: "no-store",
+        headers: await getBackendAuthHeaders(requestHeaders),
+      },
     );
   } catch {
     throw new Error(
